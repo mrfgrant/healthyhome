@@ -100,9 +100,15 @@ async function generateReportPDF(job) {
     doc.setFontSize(10);
     doc.setTextColor(110, 110, 110);
     doc.text(label, margin, y);
+    // Long labels (e.g. "Supplemental Combustion Equipment") can run past
+    // a fixed column offset and collide with the answer. Measure the
+    // actual label width and only fall back to the fixed 150pt column
+    // when the label is short enough to fit it with room to spare.
+    const labelWidth = doc.getTextWidth(label);
+    const valueX = Math.max(margin + 150, margin + labelWidth + 14);
     doc.setTextColor(30, 30, 30);
     const display = (value === 0) ? "0" : (value || "—");
-    doc.text(String(display), margin + 150, y);
+    doc.text(String(display), valueX, y);
     y += lineH;
   }
   function divider() {
