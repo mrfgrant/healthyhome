@@ -106,7 +106,13 @@ async function generateReportPDF(job) {
     doc.setFontSize((opts && opts.size) || 10.5);
     doc.setTextColor(60, 60, 60);
     const width = pageW - margin * 2;
-    const lines = doc.splitTextToSize(text || "—", width);
+    // Sanitize before splitTextToSize, not after: jsPDF measures each
+    // character's glyph width against the active WinAnsi font to decide
+    // where to wrap, and a character outside that encoding (≥/≤) throws
+    // off that measurement — which doesn't just garble the character,
+    // it can corrupt the whole wrap calculation and silently drop chunks
+    // of text nowhere near the symbol itself.
+    const lines = doc.splitTextToSize(pdfSafe(text) || "—", width);
     lines.forEach(line => {
       ensureSpace(lineH);
       doc.text(line, margin, y);
