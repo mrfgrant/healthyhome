@@ -143,3 +143,37 @@ function loadStandards() {
 function saveStandards(list) {
   localStorage.setItem("hh_standards", JSON.stringify(list));
 }
+
+/* ============================================================
+   AUTO PASS/FAIL FOR ENVIRONMENTAL MEASUREMENTS
+   Maps each Measurements screen "Test Type" to the built-in standard
+   it corresponds to, so entering a value can auto-notate Pass/Fail
+   instead of requiring the inspector to judge it by hand every time.
+   Deliberately left out any test type without a clear, safe numeric
+   threshold in the standards library (e.g. "Appliance CO (ppm)" —
+   appliance flue-gas CO safety depends on combustion-analyzer context
+   that isn't a simple "below X is fine" number) rather than invent one.
+   The inspector's manual Pass/Fail buttons still work as an override.
+   ============================================================ */
+const MEASUREMENT_AUTO_STANDARDS = {
+  "Kitchen Exhaust CFM": { test: v => v >= 100, label: "≥100 CFM intermittent (ASHRAE 62.2)" },
+  "Bath Exhaust CFM": { test: v => v >= 50, label: "≥50 CFM intermittent (ASHRAE 62.2)" },
+  "Ambient CO (interior)": { test: v => v < 9, label: "<9 ppm, 8-hr avg (EPA NAAQS)" },
+  "Ambient CO (exterior)": { test: v => v < 9, label: "<9 ppm, 8-hr avg (EPA NAAQS)" },
+  "CAZ Depressurization (Pa)": { test: v => Math.abs(v) <= 5, label: "≤5 Pa relative to outdoors (BPI protocol)" },
+  "Water Heater Temp (°F)": { test: v => v <= 120, label: "≤120°F at the tap (CPSC)" },
+  "Radon (pCi/L)": { test: v => v < 4.0, label: "Action level ≥4.0 pCi/L (EPA)" },
+  "Relative Humidity (%)": { test: v => v >= 30 && v <= 50, label: "30–50% RH (EPA / CDC-NCHH)" },
+  "Indoor Temp (°F)": { test: v => v >= 68 && v <= 78, label: "~68–78°F typical comfort band (HUD/DOE)" }
+};
+
+// Returns { result: "Pass"|"Fail", label } if this test type has a known
+// standard and the value parses as a number, otherwise null (meaning:
+// no auto-notation available, leave it to the inspector's judgment).
+function autoEvaluateMeasurement(testType, value) {
+  const rule = MEASUREMENT_AUTO_STANDARDS[testType];
+  if (!rule) return null;
+  const num = parseFloat(value);
+  if (isNaN(num)) return null;
+  return { result: rule.test(num) ? "Pass" : "Fail", label: rule.label };
+}

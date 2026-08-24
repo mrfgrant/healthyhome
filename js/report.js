@@ -15,6 +15,15 @@ function hexToRgb(hex) {
   return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
 }
 
+// jsPDF's built-in Helvetica font uses WinAnsi encoding, which doesn't
+// include ≥/≤ (they render as garbage, e.g. "≥100" → "e100"). The
+// standards library keeps the real Unicode symbols since the in-app
+// Standards screen is plain HTML and renders them fine — this only
+// sanitizes text on its way into the PDF specifically.
+function pdfSafe(text) {
+  return String(text || "").replace(/≥/g, ">=").replace(/≤/g, "<=");
+}
+
 // The logo is stored as PNG to preserve transparency (it may be a white
 // mark meant to sit on a colored background); photos stay JPEG. jsPDF's
 // addImage needs the actual format passed explicitly, so detect it from
@@ -314,7 +323,8 @@ async function generateReportPDF(job) {
     bodyText("No diagnostic measurements recorded.");
   } else {
     job.measurements.forEach(m => {
-      ensureSpace(lineH * 2);
+      const auto = autoEvaluateMeasurement(m.testType, m.value);
+      ensureSpace(lineH * (auto ? 3 : 2));
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10.5);
       doc.setTextColor(30, 30, 30);
@@ -323,8 +333,22 @@ async function generateReportPDF(job) {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.setTextColor(90, 90, 90);
-      doc.text(`Value: ${m.value || "—"} ${m.unit || ""}   Result: ${m.passFail || "—"}`, margin + 10, y);
+      doc.text(`Value: ${m.value || "—"} ${m.unit || ""}`, margin + 10, y);
+      const resultColor = m.passFail === "Pass" ? [91, 130, 102] : m.passFail === "Fail" ? [176, 80, 58] : [90, 90, 90];
+      doc.setTextColor(resultColor[0], resultColor[1], resultColor[2]);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Result: ${m.passFail || "—"}`, margin + 220, y);
       y += lineH;
+      if (auto) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8.5);
+        doc.setTextColor(120, 120, 120);
+        doc.text(`Standard: ${pdfSafe(auto.label)}`, margin + 10, y);
+        y += lineH;
+      }
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(90, 90, 90);
       if (m.notes) { bodyText(m.notes); }
       y += 4;
       divider();
@@ -364,7 +388,7 @@ async function generateReportPDF(job) {
     doc.setFontSize(9.5);
     doc.setTextColor(BRAND_ACCENT[0], BRAND_ACCENT[1], BRAND_ACCENT[2]);
     ensureSpace(13);
-    doc.text(s.range, margin, y);
+    doc.text(pdfSafe(s.range), margin, y);
     y += 13;
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8.5);

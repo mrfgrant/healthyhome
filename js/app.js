@@ -185,7 +185,21 @@ function onAppChange(e) {
   }
   if (el.dataset.measureField && currentJob) {
     const m = currentJob.measurements.find(x => x.id === el.dataset.measureId);
-    if (m) { m[el.dataset.measureField] = el.value; persist(); if (el.dataset.rerender) render(); }
+    if (m) {
+      m[el.dataset.measureField] = el.value;
+      // Re-evaluate against the built-in standard whenever the test type
+      // or the value changes, so passFail stays in sync automatically
+      // instead of requiring a manual button press every time.
+      if (el.dataset.measureField === "testType" || el.dataset.measureField === "value") {
+        const auto = autoEvaluateMeasurement(m.testType, m.value);
+        if (auto) m.passFail = auto.result;
+      }
+      persist();
+      // Only re-render on "change" (field loses focus, or a <select>
+      // changes) — not on every "input" keystroke, or typing a value
+      // would rebuild the DOM mid-type and lose cursor focus.
+      if (e.type === "change") render();
+    }
     return;
   }
 }
@@ -714,7 +728,9 @@ function renderMeasurementsScreen() {
   setChrome(job.property.address || "Readings", true, true, "measurements");
   document.getElementById("app").innerHTML = `
     <div class="screen-header"><h1>Environmental Measurements</h1><p>Combustion, exhaust, and diagnostic readings — separate from room findings.</p></div>
-    ${job.measurements.map(m => `
+    ${job.measurements.map(m => {
+      const auto = autoEvaluateMeasurement(m.testType, m.value);
+      return `
       <div class="card">
         <div class="grid2">
           <div class="field"><label>Test Type</label>
@@ -729,6 +745,8 @@ function renderMeasurementsScreen() {
           <div class="field"><label>Value</label><input class="input" data-measure-field="value" data-measure-id="${m.id}" value="${m.value}"></div>
           <div class="field"><label>Unit</label><input class="input" data-measure-field="unit" data-measure-id="${m.id}" value="${m.unit}"></div>
         </div>
+        ${auto ? `<p class="small muted" style="margin:-6px 0 10px">Standard: ${auto.label} — auto-notated as <strong style="color:var(--${auto.result === "Pass" ? "ok" : "action"})">${auto.result}</strong></p>`
+               : m.testType ? `<p class="small muted" style="margin:-6px 0 10px">No built-in standard for this test type — set Pass/Fail manually.</p>` : ""}
         <div class="row gap" style="margin-bottom:10px">
           <button class="yn-btn y ${m.passFail === "Pass" ? "selected" : ""}" data-action="set-measure-result" data-id="${m.id}" data-value="Pass">Pass</button>
           <button class="yn-btn n ${m.passFail === "Fail" ? "selected" : ""}" data-action="set-measure-result" data-id="${m.id}" data-value="Fail">Fail</button>
@@ -736,7 +754,7 @@ function renderMeasurementsScreen() {
         <div class="field"><label>Notes</label><textarea class="input" data-measure-field="notes" data-measure-id="${m.id}">${m.notes}</textarea></div>
         <button class="btn ghost" data-action="delete-measurement" data-id="${m.id}">Remove Measurement</button>
       </div>
-    `).join("")}
+    `;}).join("")}
     <button class="btn gold block" data-action="add-measurement">+ Add Measurement</button>
   `;
 }
