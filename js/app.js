@@ -190,6 +190,17 @@ function onAppChange(e) {
       if (el.dataset.measureField === "testType" || el.dataset.measureField === "value") {
         const auto = autoEvaluateMeasurement(m.testType, m.value);
         if (auto) m.passFail = auto.result;
+        // On a failing result, suggest standard remediation text — but
+        // only when notes are still empty, so this never overwrites
+        // anything the inspector has already written.
+        if (auto && auto.result === "Fail" && (!m.notes || !m.notes.trim())) {
+          const remediation = getRemediationNote(m.testType, m.value);
+          if (remediation) {
+            m.notes = remediation;
+            const notesEl = document.getElementById(`notesField_${m.id}`);
+            if (notesEl) notesEl.value = remediation;
+          }
+        }
         // Patch just this measurement's note + Pass/Fail buttons directly,
         // rather than a full render() on every keystroke — that would
         // rebuild the whole screen and kick focus out of the field the
@@ -260,7 +271,15 @@ function onAppClick(e) {
     "toggle-yn": () => { setPath(currentJob, el.dataset.path, el.dataset.value); persist(); render(); },
     "add-measurement": () => { addMeasurement(); render(); },
     "delete-measurement": () => { currentJob.measurements = currentJob.measurements.filter(m => m.id !== el.dataset.id); persist(); render(); },
-    "set-measure-result": () => { const m = currentJob.measurements.find(x => x.id === el.dataset.id); m.passFail = el.dataset.value; persist(); render(); },
+    "set-measure-result": () => {
+      const m = currentJob.measurements.find(x => x.id === el.dataset.id);
+      m.passFail = el.dataset.value;
+      if (m.passFail === "Fail" && (!m.notes || !m.notes.trim())) {
+        const remediation = getRemediationNote(m.testType, m.value);
+        if (remediation) m.notes = remediation;
+      }
+      persist(); render();
+    },
     "download-report": async () => {
       if (!requireConsentWarning()) return;
       showToast("Generating report…");
@@ -765,7 +784,7 @@ function renderMeasurementsScreen() {
           <button class="yn-btn y ${m.passFail === "Pass" ? "selected" : ""}" id="passBtn_${m.id}" data-action="set-measure-result" data-id="${m.id}" data-value="Pass">Pass</button>
           <button class="yn-btn n ${m.passFail === "Fail" ? "selected" : ""}" id="failBtn_${m.id}" data-action="set-measure-result" data-id="${m.id}" data-value="Fail">Fail</button>
         </div>
-        <div class="field"><label>Notes</label><textarea class="input" data-measure-field="notes" data-measure-id="${m.id}">${m.notes}</textarea></div>
+        <div class="field"><label>Notes</label><textarea class="input" id="notesField_${m.id}" data-measure-field="notes" data-measure-id="${m.id}">${m.notes}</textarea></div>
         <button class="btn ghost" data-action="delete-measurement" data-id="${m.id}">Remove Measurement</button>
       </div>
     `;}).join("")}

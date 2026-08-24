@@ -177,3 +177,44 @@ function autoEvaluateMeasurement(testType, value) {
   if (isNaN(num)) return null;
   return { result: rule.test(num) ? "Pass" : "Fail", label: rule.label };
 }
+
+/* ============================================================
+   AUTO REMEDIATION NOTES
+   When a measurement fails, suggests standard industry remediation
+   guidance for that specific test type — general best-practice
+   direction (per the cited standard's source), not a substitute for
+   a licensed technician's on-site diagnosis. Range-based standards
+   (humidity, indoor temp) are direction-aware since "too high" and
+   "too low" call for opposite fixes.
+   ============================================================ */
+const MEASUREMENT_REMEDIATION = {
+  "Kitchen Exhaust CFM": () =>
+    "Suggested remediation: Increase kitchen exhaust airflow to meet the ASHRAE 62.2 minimum (≥100 CFM intermittent). Check for a blocked or undersized duct, closed damper, or underpowered fan, and consider upgrading the fan or duct sizing as needed.",
+  "Bath Exhaust CFM": () =>
+    "Suggested remediation: Increase bathroom exhaust airflow to meet the ASHRAE 62.2 minimum (≥50 CFM intermittent). Confirm the fan vents to the exterior (not the attic) and check for blocked or undersized ducting.",
+  "Ambient CO (interior)": () =>
+    "Suggested remediation: Elevated indoor CO requires prompt attention. Identify and eliminate the source, ventilate the space, and have all fuel-burning appliances and venting inspected by a licensed technician. Confirm working CO alarms are installed per NFPA 72.",
+  "Ambient CO (exterior)": () =>
+    "Suggested remediation: Elevated ambient CO should be investigated for a nearby combustion source (vehicle idling, generator, appliance flue). Have suspected sources inspected by a licensed technician.",
+  "CAZ Depressurization (Pa)": () =>
+    "Suggested remediation: Depressurization outside the safe range can cause combustion appliance backdrafting. Have a BPI-certified technician diagnose the pressure imbalance — combustion air supply, duct leakage, and exhaust fan interactions — before appliances are used.",
+  "Water Heater Temp (°F)": () =>
+    "Suggested remediation: Lower the water heater thermostat setpoint to 120°F or below to reduce scald risk (CPSC guidance), while confirming it still reaches a temperature sufficient to limit bacterial growth.",
+  "Radon (pCi/L)": () =>
+    "Suggested remediation: This result meets or exceeds the EPA radon action level. Recommend installation of a radon mitigation system by a certified radon mitigation contractor, followed by a retest to confirm reduced levels.",
+  "Relative Humidity (%)": (v) => v > 50
+    ? "Suggested remediation: Humidity above the healthy range promotes mold and dust mites. Improve ventilation, address moisture sources (leaks, grading, unvented combustion), and consider a dehumidifier."
+    : "Suggested remediation: Humidity below the healthy range can cause dryness and irritation. Consider a humidifier and check for excessive uncontrolled ventilation or very dry heating sources.",
+  "Indoor Temp (°F)": (v) => v > 78
+    ? "Suggested remediation: Indoor temperature is above the typical comfort band — check cooling system function, insulation, and air sealing."
+    : "Suggested remediation: Indoor temperature is below the typical comfort band — check heating system function, insulation, and air sealing."
+};
+
+// Returns a suggested remediation string for a failing measurement, or
+// null if there's no standard remediation entry for that test type.
+function getRemediationNote(testType, value) {
+  const fn = MEASUREMENT_REMEDIATION[testType];
+  if (!fn) return null;
+  const num = parseFloat(value);
+  return fn(isNaN(num) ? undefined : num);
+}
