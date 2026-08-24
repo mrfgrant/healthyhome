@@ -187,17 +187,26 @@ function onAppChange(e) {
     const m = currentJob.measurements.find(x => x.id === el.dataset.measureId);
     if (m) {
       m[el.dataset.measureField] = el.value;
-      // Re-evaluate against the built-in standard whenever the test type
-      // or the value changes, so passFail stays in sync automatically
-      // instead of requiring a manual button press every time.
       if (el.dataset.measureField === "testType" || el.dataset.measureField === "value") {
         const auto = autoEvaluateMeasurement(m.testType, m.value);
         if (auto) m.passFail = auto.result;
+        // Patch just this measurement's note + Pass/Fail buttons directly,
+        // rather than a full render() on every keystroke — that would
+        // rebuild the whole screen and kick focus out of the field the
+        // user is actively typing in. A full render() still happens on
+        // "change" below (e.g. the Test Type <select>) to keep everything
+        // else in sync, but this keeps the Value field's live feedback
+        // from ever disrupting typing.
+        const noteEl = document.getElementById(`autoNote_${m.id}`);
+        if (noteEl) noteEl.innerHTML = renderMeasureAutoNote(auto, m.testType);
+        const passBtn = document.getElementById(`passBtn_${m.id}`);
+        const failBtn = document.getElementById(`failBtn_${m.id}`);
+        if (passBtn) passBtn.classList.toggle("selected", m.passFail === "Pass");
+        if (failBtn) failBtn.classList.toggle("selected", m.passFail === "Fail");
       }
       persist();
-      // Only re-render on "change" (field loses focus, or a <select>
-      // changes) — not on every "input" keystroke, or typing a value
-      // would rebuild the DOM mid-type and lose cursor focus.
+      // Only a full re-render on "change" (field loses focus, or a
+      // <select> changes) — not on every "input" keystroke.
       if (e.type === "change") render();
     }
     return;
@@ -723,6 +732,12 @@ function renderInspectScreen() {
   `;
 }
 
+function renderMeasureAutoNote(auto, testType) {
+  if (auto) return `<p class="small muted" style="margin:-6px 0 10px">Standard: ${auto.label} — auto-notated as <strong style="color:var(--${auto.result === "Pass" ? "ok" : "action"})">${auto.result}</strong></p>`;
+  if (testType) return `<p class="small muted" style="margin:-6px 0 10px">No built-in standard for this test type — set Pass/Fail manually.</p>`;
+  return "";
+}
+
 function renderMeasurementsScreen() {
   const job = currentJob;
   setChrome(job.property.address || "Readings", true, true, "measurements");
@@ -745,11 +760,10 @@ function renderMeasurementsScreen() {
           <div class="field"><label>Value</label><input class="input" data-measure-field="value" data-measure-id="${m.id}" value="${m.value}"></div>
           <div class="field"><label>Unit</label><input class="input" data-measure-field="unit" data-measure-id="${m.id}" value="${m.unit}"></div>
         </div>
-        ${auto ? `<p class="small muted" style="margin:-6px 0 10px">Standard: ${auto.label} — auto-notated as <strong style="color:var(--${auto.result === "Pass" ? "ok" : "action"})">${auto.result}</strong></p>`
-               : m.testType ? `<p class="small muted" style="margin:-6px 0 10px">No built-in standard for this test type — set Pass/Fail manually.</p>` : ""}
+        <div id="autoNote_${m.id}">${renderMeasureAutoNote(auto, m.testType)}</div>
         <div class="row gap" style="margin-bottom:10px">
-          <button class="yn-btn y ${m.passFail === "Pass" ? "selected" : ""}" data-action="set-measure-result" data-id="${m.id}" data-value="Pass">Pass</button>
-          <button class="yn-btn n ${m.passFail === "Fail" ? "selected" : ""}" data-action="set-measure-result" data-id="${m.id}" data-value="Fail">Fail</button>
+          <button class="yn-btn y ${m.passFail === "Pass" ? "selected" : ""}" id="passBtn_${m.id}" data-action="set-measure-result" data-id="${m.id}" data-value="Pass">Pass</button>
+          <button class="yn-btn n ${m.passFail === "Fail" ? "selected" : ""}" id="failBtn_${m.id}" data-action="set-measure-result" data-id="${m.id}" data-value="Fail">Fail</button>
         </div>
         <div class="field"><label>Notes</label><textarea class="input" data-measure-field="notes" data-measure-id="${m.id}">${m.notes}</textarea></div>
         <button class="btn ghost" data-action="delete-measurement" data-id="${m.id}">Remove Measurement</button>
