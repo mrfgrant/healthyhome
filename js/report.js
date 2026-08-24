@@ -324,11 +324,13 @@ async function generateReportPDF(job) {
 
 /* ---------- Beneficiary Agreement fill-in ----------
    Coordinates below are calibrated against the City of Atlanta HHP
-   Beneficiary Agreement template (Word/text version, converted to PDF),
-   page 2 (0-indexed page 1), at 612x792pt. If the City ever reissues the
-   template with a different layout, these will need re-calibrating
-   against the new file. Note: the year blank on this template already
-   prints "20" before the underscores, so only the 2-digit year is filled in. */
+   Beneficiary Agreement template, page 2 (0-indexed page 1), at 612x792pt.
+   Measured directly from the template's blank lines using pdfplumber
+   (word/char-level x0/x1/top/bottom extraction) rather than eyeballed —
+   if the City ever reissues the template with a different layout, re-run
+   that same extraction against the new file to get fresh coordinates.
+   Note: the year blank on this template already prints "20" before the
+   underscores, so only the 2-digit year is filled in. */
 function ordinalSuffix(n) {
   const j = n % 10, k = n % 100;
   if (j === 1 && k !== 11) return n + "st";
@@ -338,13 +340,13 @@ function ordinalSuffix(n) {
 }
 
 const AGREEMENT_FIELD_COORDS = {
-  name:         { x: 41, y: 492, size: 11 },
-  addressLine1: { x: 41, y: 429, size: 10 },
-  addressLine2: { x: 41, y: 408, size: 10 },
-  day:          { x: 120, y: 335, size: 10 },
-  month:        { x: 222, y: 335, size: 10 },
-  year:         { x: 352, y: 335, size: 10 },
-  signature:    { x: 40, y: 289, width: 220, height: 45 }
+  name:         { x: 58, y: 475, size: 11 },
+  addressLine1: { x: 58, y: 412, size: 10 },
+  addressLine2: { x: 58, y: 391, size: 10 },
+  day:          { x: 136, y: 316, size: 10 },
+  month:        { x: 238, y: 316, size: 10 },
+  year:         { x: 368, y: 316, size: 10 },
+  signature:    { x: 58, y: 273, width: 190, height: 32 }
 };
 
 async function appendSignedAgreement(mainPdfBytes, job, settings, signatureDataUrl) {
