@@ -69,6 +69,8 @@ function setChrome(title, showBack, showBottomNav, activeTab) {
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.nav === activeTab));
 }
 
+let lastRenderRoute = null;
+
 function render() {
   document.getElementById("signOutBtn").classList.toggle("hidden", !currentSession);
   document.getElementById("standardsBtn").classList.toggle("hidden", !currentSession);
@@ -77,7 +79,13 @@ function render() {
   if (!currentSession) { currentJob = null; return renderLoginScreen(); }
 
   const parts = parseHash();
-  window.scrollTo(0, 0);
+  // Only jump to the top of the page when the route actually changes (e.g.
+  // switching tabs or opening a different job). In-place re-renders caused
+  // by answering a question or toggling a value keep the current scroll
+  // position instead of yanking the user back to the top of a long form.
+  const routeKey = parts.join("/");
+  if (routeKey !== lastRenderRoute) window.scrollTo(0, 0);
+  lastRenderRoute = routeKey;
 
   if (parts[0] === "settings") { currentJob = null; renderSettingsScreen(); hydrateMedia(); return; }
   if (parts[0] === "standards") { currentJob = null; renderStandardsScreen(); hydrateMedia(); return; }
@@ -243,7 +251,10 @@ function onAppClick(e) {
       catch (e) { console.error(e); showToast("Report generation failed — check your connection"); }
     },
     "toggle-std-expand": () => { el.closest(".std-entry").classList.toggle("expanded"); },
-    "preview-report": () => openPreview(),
+    "preview-report": () => {
+      const win = window.open("", "_blank");
+      openPreview(win);
+    },
     "trigger-csv-import": () => document.getElementById("csvImportInput").click(),
     "trigger-frontphoto": () => document.getElementById("frontPhotoInput").click(),
     "toggle-area-collapse": () => {
@@ -376,7 +387,13 @@ function compressImageToBlob(dataUrl, maxDim, quality) {
       else if (height > maxDim) { width *= maxDim / height; height = maxDim; }
       const canvas = document.createElement("canvas");
       canvas.width = width; canvas.height = height;
-      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      const ctx = canvas.getContext("2d");
+      // Canvas defaults to transparent black; JPEG has no alpha channel, so any
+      // transparent PNG (e.g. a logo) gets flattened onto black instead of white
+      // unless we explicitly paint a white background first.
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
       canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("compression failed")), "image/jpeg", quality);
     };
     img.onerror = reject;
@@ -838,19 +855,30 @@ async function handleFrontPhotoInput(input) {
   }
 }
 
-/* ---------------- Report preview ---------------- */
+/* ---------------- Report preview ----------------
+   Mobile browsers generally can't scroll a multi-page PDF embedded in an
+   iframe (many only render page one with no working scroll). Opening it
+   in a full browser tab hands it to the OS/browser's native PDF viewer,
+   which scrolls and paginates correctly everywhere. The blank tab is
+   opened synchronously on the click (before the async PDF generation)
+   so Safari's popup blocker doesn't kill it once the await resolves. */
 
-async function openPreview() {
-  if (!requireConsentWarning()) return;
+async function openPreview(win) {
+  if (!requireConsentWarning()) { if (win && !win.closed) win.close(); return; }
   showToast("Generating preview…");
   try {
     const bytes = await generateReportPDF(currentJob);
     const blob = new Blob([bytes], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
-    document.getElementById("previewFrame").src = url;
-    document.getElementById("previewModal").classList.remove("hidden");
+    if (win && !win.closed) {
+      win.location.href = url;
+    } else {
+      window.open(url, "_blank");
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (e) {
     console.error(e);
+    if (win && !win.closed) win.close();
     showToast("Preview failed — check your connection");
   }
 }
