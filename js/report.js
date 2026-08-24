@@ -15,6 +15,15 @@ function hexToRgb(hex) {
   return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
 }
 
+// The logo is stored as PNG to preserve transparency (it may be a white
+// mark meant to sit on a colored background); photos stay JPEG. jsPDF's
+// addImage needs the actual format passed explicitly, so detect it from
+// the data URL rather than assuming JPEG everywhere.
+function pdfImageFormat(dataUrl) {
+  if (dataUrl && dataUrl.indexOf("data:image/png") === 0) return "PNG";
+  return "JPEG";
+}
+
 function fmtDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -124,7 +133,7 @@ async function generateReportPDF(job) {
   let titleX = margin;
   if (logoDataUrl) {
     try {
-      doc.addImage(logoDataUrl, "JPEG", margin, 18, 60, 60, undefined, "FAST");
+      doc.addImage(logoDataUrl, pdfImageFormat(logoDataUrl), margin, 18, 60, 60, undefined, "FAST");
       titleX = margin + 74;
     } catch (e) {}
   }

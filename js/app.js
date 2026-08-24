@@ -401,6 +401,29 @@ function compressImageToBlob(dataUrl, maxDim, quality) {
   });
 }
 
+// Logos can be white-on-transparent (meant to sit on a colored background,
+// letting it show through the cutouts) or colored-on-transparent (meant for
+// a light background) — there's no single flat color that's correct for
+// both. Unlike photos, a logo's transparency has to be preserved exactly
+// so it composites correctly wherever it's placed, so this resizes without
+// flattening to a solid background and exports as PNG, not JPEG.
+function resizeImagePreservingAlpha(dataUrl, maxDim) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > height && width > maxDim) { height *= maxDim / width; width = maxDim; }
+      else if (height > maxDim) { width *= maxDim / height; height = maxDim; }
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("resize failed")), "image/png");
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
 function openAddAreaFlow() {
   const name = prompt("Area name (e.g. Master Bedroom, Kitchen, HVAC System):");
   if (!name) return;
@@ -811,8 +834,8 @@ async function handleLogoInput(input) {
   showToast("Uploading logo…");
   try {
     const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
-    const blob = await compressImageToBlob(dataUrl, 500, 0.85);
-    const path = await uploadMedia("company", "logo", blob, "jpg");
+    const blob = await resizeImagePreservingAlpha(dataUrl, 500);
+    const path = await uploadMedia("company", "logo", blob, "png");
     await saveSettings({ logo_path: path });
     showToast("Logo saved");
     render();
