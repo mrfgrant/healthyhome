@@ -187,16 +187,25 @@ function onAppChange(e) {
     const m = currentJob.measurements.find(x => x.id === el.dataset.measureId);
     if (m) {
       m[el.dataset.measureField] = el.value;
+      // The inspector typing directly into Notes means they're taking
+      // ownership of that text — stop auto-updating it after this point,
+      // no matter what they typed.
+      if (el.dataset.measureField === "notes") m.notesAuto = false;
       if (el.dataset.measureField === "testType" || el.dataset.measureField === "value") {
         const auto = autoEvaluateMeasurement(m.testType, m.value);
         if (auto) m.passFail = auto.result;
-        // On a failing result, suggest standard remediation text — but
-        // only when notes are still empty, so this never overwrites
-        // anything the inspector has already written.
-        if (auto && auto.result === "Fail" && (!m.notes || !m.notes.trim())) {
+        // Suggest standard remediation text on a failing result. Keeps
+        // updating with the live value (not just a one-time fill) as
+        // long as the current notes are still system-generated rather
+        // than inspector-edited — otherwise, typing "60" digit-by-digit
+        // would lock in the stale "6" (too-low) suggestion the instant
+        // notes went from empty to non-empty, and never correct itself
+        // once the full value read "too high" instead.
+        if (auto && auto.result === "Fail" && (!m.notes || !m.notes.trim() || m.notesAuto)) {
           const remediation = getRemediationNote(m.testType, m.value);
           if (remediation) {
             m.notes = remediation;
+            m.notesAuto = true;
             const notesEl = document.getElementById(`notesField_${m.id}`);
             if (notesEl) notesEl.value = remediation;
           }
@@ -274,9 +283,9 @@ function onAppClick(e) {
     "set-measure-result": () => {
       const m = currentJob.measurements.find(x => x.id === el.dataset.id);
       m.passFail = el.dataset.value;
-      if (m.passFail === "Fail" && (!m.notes || !m.notes.trim())) {
+      if (m.passFail === "Fail" && (!m.notes || !m.notes.trim() || m.notesAuto)) {
         const remediation = getRemediationNote(m.testType, m.value);
-        if (remediation) m.notes = remediation;
+        if (remediation) { m.notes = remediation; m.notesAuto = true; }
       }
       persist(); render();
     },
