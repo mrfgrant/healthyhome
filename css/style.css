@@ -8,14 +8,15 @@
    ============================================================ */
 
 :root {
-  --ink: #1C2B33;
-  --ink-soft: #3B4A52;
-  --paper: #F5F6F3;
+  /* In Touch Reno brand blues, sampled from the logo (#0D6EBE / #2185D6) */
+  --ink: #08477B;
+  --ink-soft: #2C5578;
+  --paper: #F4F7FA;
   --paper-raised: #FFFFFF;
-  --line: #DCDCD3;
-  --muted: #74807E;
-  --gold: #E8A33D;
-  --pine: #3B6E71;
+  --line: #DCE3E9;
+  --muted: #64798C;
+  --gold: #2185D6;
+  --pine: #1670A6;
 
   --ok: #5B8266;
   --ok-bg: #E7EEE4;

@@ -6,6 +6,15 @@
 
 const DISCLAIMER_TEXT = `This Healthy Home Environmental Assessment evaluates and characterizes home-based environmental health and safety conditions using visual observation, resident interview, and diagnostic testing performed at the time of the visit. Findings reflect only conditions apparent and accessible on the date of the assessment; latent or concealed defects are excluded. This report is not a compliance inspection or certification against any specific governmental code, ordinance, or regulation, and it is not medical or legal advice. Recommendations discussed are intended to help prioritize corrective action and are not exhaustive of every possible hazard. Consult a qualified licensed contractor for repairs and a healthcare provider for any health-related concerns.`;
 
+/* In Touch Reno brand blues, sampled directly from the logo. */
+const BRAND_PRIMARY = [8, 71, 123];   // #08477B — title bars, cover band
+const BRAND_ACCENT = [33, 133, 214];  // #2185D6 — score, source lines
+
+function hexToRgb(hex) {
+  hex = (hex || "#666666").replace("#", "");
+  return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
+}
+
 function fmtDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -18,6 +27,7 @@ function statusLabel(s) {
 
 async function generateReportPDF(job) {
   const settings = await loadSettings();
+  const companyName = (settings.company_name && settings.company_name.trim()) || "In Touch Reno";
   let logoDataUrl = null;
   if (settings.logo_path) logoDataUrl = await downloadMediaAsDataUrl(settings.logo_path);
   let frontPhotoDataUrl = null;
@@ -56,14 +66,23 @@ async function generateReportPDF(job) {
       y = margin;
     }
   }
+  // Colored title bar for every major section heading — draws a filled
+  // brand-color band spanning the page width with white bold text in it,
+  // rather than plain black text on the paper background.
   function heading(text, size) {
-    ensureSpace(30);
+    size = size || 14;
+    const barH = size + 18;
+    ensureSpace(barH + 10);
+    const barTop = y - size + 2;
+    doc.setFillColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
+    doc.rect(margin - 6, barTop, pageW - margin * 2 + 12, barH, "F");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(size || 14);
-    doc.setTextColor(28, 43, 51);
-    doc.text(text, margin, y);
-    y += (size || 14) * 0.9 + 8;
+    doc.setFontSize(size);
+    doc.setTextColor(255, 255, 255);
+    doc.text(text, margin, barTop + barH / 2 + size * 0.32);
+    y = barTop + barH + 14;
     doc.setFont("helvetica", "normal");
+    doc.setTextColor(30, 30, 30);
   }
   function bodyText(text, opts) {
     doc.setFontSize((opts && opts.size) || 10.5);
@@ -94,7 +113,7 @@ async function generateReportPDF(job) {
   }
 
   /* ---------- COVER PAGE ---------- */
-  doc.setFillColor(28, 43, 51);
+  doc.setFillColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
   doc.rect(0, 0, pageW, 100, "F");
 
   // Logo (top-left of the band) and company name
@@ -108,13 +127,13 @@ async function generateReportPDF(job) {
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  if (settings.company_name) doc.text(settings.company_name, titleX, 34);
+  doc.text(companyName, titleX, 34);
   doc.setFontSize(18);
-  doc.text("Healthy Home Assessment Report", titleX, settings.company_name ? 56 : 44);
+  doc.text("Healthy Home Assessment Report", titleX, 56);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
-  doc.text(job.property.address || "Address not provided", titleX, settings.company_name ? 76 : 66);
-  doc.text(`${job.property.city || ""}${job.property.city ? ", " : ""}${job.property.state || ""} ${job.property.zip || ""}`, titleX, settings.company_name ? 90 : 80);
+  doc.text(job.property.address || "Address not provided", titleX, 76);
+  doc.text(`${job.property.city || ""}${job.property.city ? ", " : ""}${job.property.state || ""} ${job.property.zip || ""}`, titleX, 90);
 
   y = 116;
   // Front-of-house photo
@@ -128,17 +147,36 @@ async function generateReportPDF(job) {
     } catch (e) {}
   }
 
+  // Details block moved down ~3 lines from the photo before starting.
+  y += lineH * 3;
+
+  // "Prepared For / Prepared By" signature-style block — replaces the
+  // old flat details list (client name/phone/etc.) entirely.
   doc.setTextColor(30, 30, 30);
-  kv("Report ID", job.id);
-  kv("Client Name", job.property.clientName);
-  kv("Client Phone", job.property.clientPhone);
-  kv("Client Email", job.property.clientEmail);
-  kv("Ordered By", job.property.orderedBy);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  ensureSpace(16);
+  doc.text("Prepared For:", margin, y);
+  y += 18;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  ensureSpace(16);
+  doc.text("C I T Y   O F   A T L A N T A", margin, y);
+  y += 16;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10.5);
+  ensureSpace(14);
+  doc.text("DEPARTMENT OF GRANTS AND COMMUNITY DEVELOPMENT", margin, y);
+  y += 14;
+
+  y += lineH; // blank line
+  y += lineH; // blank line
+
+  kv("Inspection Date", fmtDate(job.property.visitDate));
+  kv("Prepared by", companyName);
   kv("Inspector", job.property.inspectorName);
-  kv("Visit Date", fmtDate(job.property.visitDate));
-  kv("Dwelling Type", job.property.dwellingType);
-  kv("Year Built", job.property.yearBuilt);
-  kv("Weather at Visit", job.property.weather);
   y += 10;
   divider();
 
@@ -146,7 +184,7 @@ async function generateReportPDF(job) {
   ensureSpace(50);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(36);
-  doc.setTextColor(28, 43, 51);
+  doc.setTextColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
   doc.text(String(scoreInfo.score), margin, y + 30);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
@@ -193,7 +231,7 @@ async function generateReportPDF(job) {
     doc.rect(margin - 6, y - 14, pageW - margin * 2 + 12, 22, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12.5);
-    doc.setTextColor(28, 43, 51);
+    doc.setTextColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
     doc.text(`${area.name}  ·  ${area.type}`, margin, y);
     y += 22;
     doc.setFont("helvetica", "normal");
@@ -285,6 +323,45 @@ async function generateReportPDF(job) {
   heading("Field Notes & Recommendations", 16);
   bodyText(job.fieldNotes || "No additional field notes recorded.");
 
+  /* ---------- HEALTHY HOMES STANDARDS GLOSSARY ---------- */
+  doc.addPage(); y = margin;
+  heading("Healthy Homes Standards — Reference Glossary", 15);
+  bodyText("Built-in reference standards used throughout this assessment. Verify against current local, state, and federal code before citing in a legal or compliance context.", { size: 9 });
+  y += 8;
+  const stds = loadStandards();
+  stds.forEach(s => {
+    const p = principleByKey(s.principle);
+    const rgbP = hexToRgb(p.color);
+    ensureSpace(56);
+    doc.setFillColor(rgbP[0], rgbP[1], rgbP[2]);
+    doc.circle(margin + 3, y - 3, 3, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(rgbP[0], rgbP[1], rgbP[2]);
+    doc.text(p.label.toUpperCase(), margin + 12, y);
+    y += 14;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(30, 30, 30);
+    doc.text(s.title, margin, y);
+    y += 14;
+    doc.setFont("helvetica", "normal");
+    bodyText(s.criteria, { size: 9.5 });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(BRAND_ACCENT[0], BRAND_ACCENT[1], BRAND_ACCENT[2]);
+    ensureSpace(13);
+    doc.text(s.range, margin, y);
+    y += 13;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8.5);
+    doc.setTextColor(120, 120, 120);
+    ensureSpace(13);
+    doc.text(`Source: ${s.source}`, margin, y);
+    y += 16;
+    divider();
+  });
+
   /* ---------- DISCLAIMER + SIGNATURE ---------- */
   doc.addPage(); y = margin;
   heading("Terms & Acknowledgement", 16);
@@ -305,7 +382,7 @@ async function generateReportPDF(job) {
     doc.setPage(i);
     doc.setFontSize(8.5);
     doc.setTextColor(150, 150, 150);
-    doc.text(`Fieldmark Healthy Home Report — ${job.property.address || ""}`, margin, pageH - 24);
+    doc.text(`${companyName} Healthy Home Report — ${job.property.address || ""}`, margin, pageH - 24);
     doc.text(`Page ${i} of ${pageCount}`, pageW - margin - 60, pageH - 24);
   }
 

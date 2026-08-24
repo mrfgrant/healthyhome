@@ -23,12 +23,12 @@ async function initAuth() {
 
 function renderLoginScreen(mode) {
   mode = mode || "signin";
-  setChrome("Fieldmark", false, false);
+  setChrome("In Touch Reno", false, false);
   document.getElementById("app").innerHTML = `
     <div style="max-width:360px; margin:60px auto 0;">
       <div style="text-align:center; margin-bottom:28px">
         <div style="font-size:34px">⌂</div>
-        <h1 style="margin:8px 0 2px">Fieldmark</h1>
+        <h1 style="margin:8px 0 2px">In Touch Reno</h1>
         <p class="muted small">Healthy Home Inspections</p>
       </div>
       <div class="card">

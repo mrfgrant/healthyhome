@@ -176,7 +176,7 @@ async function loadSettings() {
   if (error) { console.error("loadSettings", error); return { company_name: "", logo_path: "", inspectors: [], ordered_by_list: [] }; }
   if (!data) {
     // First run for this user — seed with the default inspector.
-    const seeded = { user_id: userId, company_name: "", logo_path: "", inspectors: ["Forrest Grant"], ordered_by_list: [] };
+    const seeded = { user_id: userId, company_name: "In Touch Reno", logo_path: "", inspectors: ["Forrest Grant"], ordered_by_list: [] };
     await sb.from("user_settings").upsert(seeded);
     settingsCache = seeded;
     return settingsCache;

@@ -396,7 +396,7 @@ function openAddAreaFlow() {
    ================================================================ */
 
 function renderJobsScreen() {
-  setChrome("Fieldmark", false, false);
+  setChrome("In Touch Reno", false, false);
   const jobs = loadJobs().sort((a, b) => b.updatedAt - a.updatedAt);
   const app = document.getElementById("app");
 
