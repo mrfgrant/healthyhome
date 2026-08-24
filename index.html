@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fieldmark — Healthy Homes Inspections</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%231C2B33%22/><path d=%22M50 20 L78 42 L78 82 L22 82 L22 42 Z%22 fill=%22none%22 stroke=%22%23E8A33D%22 stroke-width=%226%22/></svg>">
+<link rel="stylesheet" href="css/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div id="app"></div>
+
+<!-- Bottom nav (shown once a job exists / on job screens) -->
+<nav id="bottomNav" class="bottom-nav hidden">
+  <button data-nav="intake" class="nav-btn"><span class="nav-ico">◧</span>Intake</button>
+  <button data-nav="inspect" class="nav-btn"><span class="nav-ico">▦</span>Inspect</button>
+  <button data-nav="measurements" class="nav-btn"><span class="nav-ico">≋</span>Readings</button>
+  <button data-nav="notes" class="nav-btn"><span class="nav-ico">✎</span>Notes</button>
+  <button data-nav="review" class="nav-btn"><span class="nav-ico">▤</span>Report</button>
+</nav>
+
+<!-- Global top bar -->
+<header id="topBar" class="top-bar">
+  <button id="backBtn" class="icon-btn hidden" aria-label="Back">←</button>
+  <div id="topTitle" class="top-title">Fieldmark</div>
+  <button id="settingsBtn" class="icon-btn hidden" aria-label="Company Settings" title="Company Settings">⚙</button>
+  <button id="standardsBtn" class="icon-btn hidden" aria-label="Standards Library" title="Standards Library">§</button>
+  <button id="signOutBtn" class="icon-btn hidden" aria-label="Sign Out" title="Sign Out">⏻</button>
+</header>
+
+<!-- Signature modal -->
+<div id="sigModal" class="modal hidden">
+  <div class="modal-card">
+    <h3>Sign to confirm</h3>
+    <p class="muted small" id="sigContext"></p>
+    <canvas id="sigCanvas" width="600" height="260"></canvas>
+    <div class="row gap">
+      <input id="sigName" type="text" placeholder="Printed name" class="input flex1">
+    </div>
+    <div class="row gap end">
+      <button class="btn ghost" id="sigClear">Clear</button>
+      <button class="btn ghost" id="sigCancel">Cancel</button>
+      <button class="btn primary" id="sigSave">Save Signature</button>
+    </div>
+  </div>
+</div>
+
+<!-- Report preview modal -->
+<div id="previewModal" class="modal hidden">
+  <div class="modal-card" style="height:88vh; display:flex; flex-direction:column;">
+    <div class="row between" style="margin-bottom:8px">
+      <h3 style="margin:0">Report Preview</h3>
+      <button class="btn ghost" id="previewClose">Close</button>
+    </div>
+    <iframe id="previewFrame" style="flex:1; width:100%; border:1px solid var(--line); border-radius:8px;"></iframe>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/standards.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/signature.js"></script>
+<script src="js/report.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
