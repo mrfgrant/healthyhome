@@ -172,6 +172,7 @@ function onAppChange(e) {
   }
   if (el.dataset.path && currentJob) {
     setPath(currentJob, el.dataset.path, el.value);
+    if (el.dataset.path === "fieldNotes") currentJob.fieldNotesAuto = false;
     persist();
     if (el.dataset.rerender) render();
     return;
@@ -338,6 +339,7 @@ function onAppClick(e) {
       btn.disabled = true; btn.textContent = "Cleaning up…";
       try {
         currentJob.fieldNotes = await aiCleanText(currentJob.fieldNotes, "Overall field notes and recommendations for a Healthy Home Environmental Assessment report");
+        currentJob.fieldNotesAuto = false;
         persist(); render();
         showToast("Notes cleaned up");
       } catch (e) {
@@ -345,6 +347,12 @@ function onAppClick(e) {
         showToast("AI cleanup failed — check your connection");
         btn.disabled = false; btn.textContent = original;
       }
+    },
+    "refresh-field-notes": () => {
+      currentJob.fieldNotes = aggregateFieldNotes(currentJob);
+      currentJob.fieldNotesAuto = true;
+      persist(); render();
+      showToast("Refreshed from area & measurement notes");
     },
   };
   if (handlers[action]) handlers[action]();
@@ -801,14 +809,54 @@ function renderMeasurementsScreen() {
   `;
 }
 
+// Pulls together every non-empty finding note and measurement note into
+// one readable block, tagged with where each came from. Used to keep
+// Field Notes in sync automatically so the inspector isn't retyping
+// things they already wrote per-area/per-reading — but only while
+// fieldNotesAuto is true; the moment they edit Field Notes directly (or
+// run AI cleanup on it), that flag flips off and this stops touching it.
+function aggregateFieldNotes(job) {
+  const lines = [];
+  job.areas.forEach(area => {
+    area.findings.forEach(f => {
+      if (f.notes && f.notes.trim()) {
+        const p = principleByKey(f.principle);
+        const label = f.category || p.label;
+        lines.push(`[${area.name}] ${label} — ${statusLabel(f.status)}: ${f.notes.trim()}`);
+      }
+    });
+  });
+  job.measurements.forEach(m => {
+    if (m.notes && m.notes.trim()) {
+      const loc = m.location ? ` @ ${m.location}` : "";
+      lines.push(`[Measurement] ${m.testType || "Reading"}${loc} — ${m.passFail || "—"}: ${m.notes.trim()}`);
+    }
+  });
+  return lines.join("\n\n");
+}
+
 function renderNotesScreen() {
   const job = currentJob;
   setChrome(job.property.address || "Notes", true, true, "notes");
+  // Legacy jobs saved before this feature won't have fieldNotesAuto set —
+  // default it to true only if fieldNotes is currently empty, so this
+  // never silently overwrites notes someone already wrote by hand.
+  if (job.fieldNotesAuto === undefined) job.fieldNotesAuto = !job.fieldNotes || !job.fieldNotes.trim();
+  if (job.fieldNotesAuto) {
+    const aggregated = aggregateFieldNotes(job);
+    if (aggregated !== job.fieldNotes) { job.fieldNotes = aggregated; persist(); }
+  }
   document.getElementById("app").innerHTML = `
     <div class="screen-header"><h1>Field Notes</h1><p>Narrative findings and recommendations — shown near the top of the report.</p></div>
     <div class="card">
+      ${job.fieldNotesAuto
+        ? `<p class="small muted" style="margin-top:-4px">Auto-aggregated from every area and measurement note below — edit the text directly to take over, or keep adding notes elsewhere and revisit this screen to pick them up.</p>`
+        : `<p class="small muted" style="margin-top:-4px">Edited manually — no longer auto-updating from area/measurement notes.</p>`}
       <textarea class="input" style="min-height:260px" data-path="fieldNotes">${job.fieldNotes}</textarea>
-      <button class="btn gold block" style="margin-top:10px" data-action="ai-clean-field-notes">✨ Clean up with AI</button>
+      <div class="row gap" style="margin-top:10px">
+        <button class="btn gold flex1" data-action="ai-clean-field-notes">✨ Clean up with AI</button>
+        <button class="btn ghost flex1" data-action="refresh-field-notes">↺ Refresh from notes</button>
+      </div>
     </div>
   `;
 }

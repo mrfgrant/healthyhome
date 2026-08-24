@@ -97,7 +97,8 @@ function newJob() {
     consent: { signed: false, signaturePath: "", signedName: "", signedAt: "" },
     areas: [],
     measurements: [],
-    fieldNotes: ""
+    fieldNotes: "",
+    fieldNotesAuto: true
   };
 }
 
