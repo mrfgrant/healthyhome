@@ -43,6 +43,45 @@ function statusLabel(s) {
   return s === "ok" ? "OK" : s === "concern" ? "Concern" : "Action Needed";
 }
 
+// The cover photo box has a fixed, wide/short aspect ratio that rarely
+// matches an actual phone photo's aspect ratio (portrait 3:4, landscape
+// 4:3, etc). Passing the raw image straight to addImage at the box's
+// exact width/height stretches it non-uniformly to fill that shape,
+// which is what was skewing the photo. This crops the image to the
+// box's exact aspect ratio first (centered, losing the excess on
+// whichever axis doesn't fit), so the later addImage scale is uniform.
+function centerCropToDataUrl(dataUrl, targetAspect) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const iw = img.naturalWidth, ih = img.naturalHeight;
+      const currentAspect = iw / ih;
+      let sx, sy, sw, sh;
+      if (currentAspect > targetAspect) {
+        // source is wider than the target box -> crop left/right
+        sh = ih;
+        sw = ih * targetAspect;
+        sx = (iw - sw) / 2;
+        sy = 0;
+      } else {
+        // source is taller than the target box -> crop top/bottom
+        sw = iw;
+        sh = iw / targetAspect;
+        sx = 0;
+        sy = (ih - sh) / 2;
+      }
+      const canvas = document.createElement("canvas");
+      const outW = Math.min(sw, 1200);
+      const outH = outW / targetAspect;
+      canvas.width = outW; canvas.height = outH;
+      canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
 async function generateReportPDF(job) {
   const settings = await loadSettings();
   const companyName = (settings.company_name && settings.company_name.trim()) || "In Touch Reno";
@@ -170,7 +209,8 @@ async function generateReportPDF(job) {
     try {
       const imgW = pageW - margin * 2;
       const imgH = 170;
-      doc.addImage(frontPhotoDataUrl, "JPEG", margin, y, imgW, imgH, undefined, "FAST");
+      const cropped = await centerCropToDataUrl(frontPhotoDataUrl, imgW / imgH);
+      doc.addImage(cropped, "JPEG", margin, y, imgW, imgH, undefined, "FAST");
       y += imgH + 14;
     } catch (e) {}
   }
@@ -205,6 +245,14 @@ async function generateReportPDF(job) {
   kv("Inspection Date", fmtDate(job.property.visitDate));
   kv("Prepared by", companyName);
   kv("Inspector", job.property.inspectorName);
+  y += 10;
+  divider();
+
+  heading("Property Details", 13);
+  kv("Dwelling Type", job.property.dwellingType);
+  kv("Year Built", job.property.yearBuilt);
+  kv("Stories", job.property.stories);
+  kv("Weather", job.property.weather);
   y += 10;
   divider();
 
